@@ -33,6 +33,7 @@ dependencies:
   googleapis_auth: ^0.2.12
   meta: ^1.1.6
   url_launcher: ^6.0.3
+  sound_stream: ^0.2.0
   dialogflow_v2:
     path: ../dialogflow_v2
 

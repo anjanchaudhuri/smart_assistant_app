@@ -1,5 +1,10 @@
-import 'dart:io';
+import 'dart:convert';
+import 'dart:async';
+import 'dart:typed_data';
 
+import 'package:dialogflow_v2/model/audio_input_config.dart';
+import 'package:dialogflow_v2/model/output_audio_config.dart';
+import 'package:dialogflow_v2/model/output_audio_encoding.dart';
 import 'package:flutter/cupertino.dart';
 import 'package:flutter/material.dart';
 
@@ -12,7 +17,7 @@ import 'package:dialogflow_v2/dialogflow_v2.dart' as df;
 // import 'my_message.dart';
 import 'package:intl/intl.dart';
 import 'package:url_launcher/url_launcher.dart';
-import 'dart:async';
+import 'package:sound_stream/sound_stream.dart';
 
 void main() {
   runApp(MyApp());
@@ -60,10 +65,70 @@ class MyHomePage extends StatefulWidget {
 }
 
 class _MyHomePageState extends State<MyHomePage> {
+  RecorderStream _recorder = RecorderStream();
+  PlayerStream _player = PlayerStream();
+  List<Uint8List> _micChunks = [];
+  bool _isRecording = false;
+  bool _isPlaying = false;
+
+  StreamSubscription _recorderStatus;
+  StreamSubscription _playerStatus;
+  StreamSubscription _audioStream;
+
+  @override
+  void initState() {
+    super.initState();
+    initSoundPlugin();
+  }
+
+  @override
+  void dispose() {
+    _recorderStatus?.cancel();
+    _playerStatus?.cancel();
+    _audioStream?.cancel();
+    super.dispose();
+  }
+
+  // Platform messages are asynchronous, so we initialize in an async method.
+  Future<void> initSoundPlugin() async {
+    _recorderStatus = _recorder.status.listen((status) {
+      if (mounted)
+        setState(() {
+          _isRecording = status == SoundStreamStatus.Playing;
+        });
+    });
+
+    _audioStream = _recorder.audioStream.listen((data) {
+      if (_isPlaying) {
+        _player.writeChunk(data);
+      } else {
+        _micChunks.add(data);
+      }
+    });
+
+    _playerStatus = _player.status.listen((status) {
+      if (mounted)
+        setState(() {
+          _isPlaying = status == SoundStreamStatus.Playing;
+        });
+    });
+
+    await Future.wait([
+      _recorder.initialize(),
+      _player.initialize(),
+    ]);
+
+    // Print sound plugin states
+    print('Recorder status: $_recorderStatus');
+    print('Is Recording: $_isRecording');
+    print('(Audio) Player status: $_playerStatus');
+    print('Is (audio) playing: $_isPlaying');
+  }
+
   final List<ChatMessage> _messages = <ChatMessage>[];
   final TextEditingController _textController = TextEditingController();
   bool _micOn = false;
-  Future<void> _launched;
+  // Future<void> _launched;
 
   Future<void> launchInBrowser(String url) async {
     if (await canLaunch(url)) {
@@ -120,7 +185,7 @@ class _MyHomePageState extends State<MyHomePage> {
     print('Mic is ${_micOn ? 'on' : 'off'}');
   }
 
-  void response(query) async {
+  void response(df.DetectIntentRequest query) async {
     _textController.clear();
     df.AuthGoogle authGoogle =
         await df.AuthGoogle(fileJson: '.secret/smart_assistant.json').build();
@@ -142,24 +207,34 @@ class _MyHomePageState extends State<MyHomePage> {
     // final DateFormat format = DateFormat('E MMM d, yyyy hh:mm');
     // print(format.format(DateTime.now()));
     // print(response.toJson());
-    print("---- end debug info -----");
 
     // Display the user query text after obtaining their query text
     // from STT api call, when the user was speaking to the bot.
-    if (response.outputAudioConfig != null) {
+    if (response.outputAudioConfig != null || response.outputAudio != null) {
       // Output is an audio in response to input audio
       // So, the user input text is obtained from speech-to-text api call
       // No explicit text was typed by the user
-      ChatMessage userQuery = ChatMessage(
-        text: response.queryResult.queryText,
-        name: 'User',
-        type: true,
-        now: DateTime.now(),
-      );
-      setState(() {
-        _messages.insert(0, userQuery);
-      });
+      print(
+          'Output Audio Config in response: ${response.outputAudioConfig.toJson()}');
+      print('Output audio: ${response.outputAudio.length}');
+
+      // Play audio response from Dialogflow
+      _playAudio(response.outputAudio);
+
+      if (query.queryInput.text == null) {
+        ChatMessage userQuery = ChatMessage(
+          text: response.queryResult.queryText,
+          name: 'User',
+          type: true,
+          now: DateTime.now(),
+        );
+        setState(() {
+          _messages.insert(0, userQuery);
+        });
+      }
     }
+
+    print("---- end debug info -----");
 
     // Display bot response (rich)
     ChatMessage message = ChatMessage(
@@ -175,7 +250,7 @@ class _MyHomePageState extends State<MyHomePage> {
     });
   }
 
-  // Submit user query from keyboard input (text message)
+  /// Submit user query from keyboard input (text message)
   void handleSubmitted(String text) {
     _textController.clear();
     ChatMessage message = ChatMessage(
@@ -190,11 +265,42 @@ class _MyHomePageState extends State<MyHomePage> {
 
     // Build DetectIntentRequest
     df.DetectIntentRequest request = df.DetectIntentRequest(
-        queryInput: df.QueryInput(
-            text: df.TextInput(text: text, languageCode: df.Language.english)));
+      queryInput: df.QueryInput(
+        text: df.TextInput(text: text, languageCode: df.Language.english),
+      ),
+      outputAudioConfig: this.outputAudioConfig,
+    );
 
-    // Call dialogflow
+    // Call Dialogflow
     response(request);
+  }
+
+  /// Input audio config
+  InputAudioConfig get inputAudioConfig {
+    return df.InputAudioConfig(
+      audioEncoding: df.AudioEncoding.linear16,
+      sampleRateHertz: 16000,
+      languageCode: df.Language.englishUsLocale,
+    );
+  }
+
+  /// Output audio config
+  OutputAudioConfig get outputAudioConfig {
+    return OutputAudioConfig(
+      audioEncoding: OutputAudioEncoding.linear16,
+      sampleRateHertz: 16000,
+    );
+  }
+
+  /// Play audio received from Dialogflow
+  void _playAudio(String audio) async {
+    await _player.start();
+    if (audio != null && audio.length > 0) {
+      print('Playing audio response from Dialogflow...');
+      await _player.writeChunk(base64.decode(audio));
+      print('Finished playing response from Dialogflow');
+    }
+    // _player.stop();
   }
 
   @override
@@ -394,6 +500,10 @@ class ChatMessage extends StatelessWidget {
         onPressed: () => launch(msg.buttons[i].openUriAction.uri),
       ));
     }
+
+    // // Build children of the column
+    // List<Widget> colChildren = [];
+
     // Return a container with a column containing all components
     // of the Basic Card
     return Container(
@@ -413,7 +523,7 @@ class ChatMessage extends StatelessWidget {
           //   style: Theme.of(context).textTheme.subtitle1,
           // ),
           Text(
-            msg.formattedText,
+            msg.formattedText ?? 'Click or tap below',
             style: TextStyle(
               color: Colors.black,
               fontWeight: FontWeight.normal,
