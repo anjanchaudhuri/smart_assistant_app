@@ -21,6 +21,7 @@ import 'package:url_launcher/url_launcher.dart';
 import 'package:sound_stream/sound_stream.dart';
 import 'package:speech_recognition/speech_recognition.dart';
 import 'package:volume_watcher/volume_watcher.dart';
+import 'package:xml/xml.dart';
 
 void main() {
   runApp(MyApp());
@@ -91,7 +92,7 @@ class _MyHomePageState extends State<MyHomePage> {
   void initState() {
     super.initState();
     initSoundPlugin();
-    initSpeechRecognizer();
+    // initSpeechRecognizer();
   }
 
   @override
@@ -136,47 +137,47 @@ class _MyHomePageState extends State<MyHomePage> {
   }
 
   // Initialize speech recognizer
-  void initSpeechRecognizer() {
-    // Instance of speech recognizer
-    _speechRecognition = SpeechRecognition();
-
-    // Availability call back handler
-    _speechRecognition.setAvailabilityHandler((result) {
-      setState(() {
-        _isAvailable = result;
-      });
-    });
-
-    // Speech recognition started event callback handler
-    _speechRecognition.setRecognitionStartedHandler(() {
-      setState(() {
-        _isListening = true;
-      });
-    });
-
-    // Speech recognition result event callback handler
-    _speechRecognition.setRecognitionResultHandler((text) {
-      setState(() {
-        _textController.text = text;
-      });
-    });
-
-    // Speech recognition completed event callback handler
-    _speechRecognition.setRecognitionCompleteHandler(() {
-      setState(() {
-        print('Speech recognition completed.');
-        _printSpeechRecognizerStatus();
-        _isListening = false;
-      });
-    });
-
-    // Activate speech recognition
-    _speechRecognition.activate().then((value) => setState(() {
-          print('Speech recognizer activated');
-          _isAvailable = value;
-          _printSpeechRecognizerStatus();
-        }));
-  }
+  // void initSpeechRecognizer() {
+  //   // Instance of speech recognizer
+  //   _speechRecognition = SpeechRecognition();
+  //
+  //   // Availability call back handler
+  //   _speechRecognition.setAvailabilityHandler((result) {
+  //     setState(() {
+  //       _isAvailable = result;
+  //     });
+  //   });
+  //
+  //   // Speech recognition started event callback handler
+  //   _speechRecognition.setRecognitionStartedHandler(() {
+  //     setState(() {
+  //       _isListening = true;
+  //     });
+  //   });
+  //
+  //   // Speech recognition result event callback handler
+  //   _speechRecognition.setRecognitionResultHandler((text) {
+  //     setState(() {
+  //       _textController.text = text;
+  //     });
+  //   });
+  //
+  //   // Speech recognition completed event callback handler
+  //   _speechRecognition.setRecognitionCompleteHandler(() {
+  //     setState(() {
+  //       print('Speech recognition completed.');
+  //       _printSpeechRecognizerStatus();
+  //       _isListening = false;
+  //     });
+  //   });
+  //
+  //   // Activate speech recognition
+  //   _speechRecognition.activate().then((value) => setState(() {
+  //         print('Speech recognizer activated');
+  //         _isAvailable = value;
+  //         _printSpeechRecognizerStatus();
+  //       }));
+  // }
 
   // Platform messages are asynchronous, so we initialize in an async method.
   Future<void> initSoundPlugin() async {
@@ -374,24 +375,27 @@ class _MyHomePageState extends State<MyHomePage> {
       // Play audio response from Dialogflow
       _playAudio(response.outputAudio);
 
-      if (query.queryInput.text == null) {
-        ChatMessage userQuery = ChatMessage(
-          text: response.queryResult.queryText,
-          name: 'User',
-          type: true,
-          now: DateTime.now(),
-        );
-        setState(() {
-          _messages.insert(0, userQuery);
-        });
-      }
     }
 
     print("---- end debug info -----");
 
+    // In case the user did not explicitly type their queries
+    // from the keyboard.
+    if (query.queryInput.text == null) {
+      ChatMessage userQuery = ChatMessage(
+        text: response.queryResult.queryText,
+        name: 'User',
+        type: true,
+        now: DateTime.now(),
+      );
+      setState(() {
+        _messages.insert(0, userQuery);
+      });
+    }
+
     // Display bot response (rich)
     ChatMessage message = ChatMessage(
-      text: response.getMessage(),
+      text: _parseXml(response.getMessage()),
       aiResponse: response,
       name: 'Bot',
       type: false,
@@ -402,6 +406,20 @@ class _MyHomePageState extends State<MyHomePage> {
       _messages.insert(0, message);
     });
   }
+
+  /// Parse XML fragment
+  String _parseXml(String xml) {
+    String simpleText;
+    if (xml.startsWith('\<') && xml.endsWith('\>')) {
+      var doc = XmlDocument.parse(xml);
+      simpleText = doc.root.firstChild.text;
+    } else {
+      simpleText = xml;
+    }
+    print('Text: $simpleText');
+    return simpleText;
+  }
+
 
   /// Submit user query from keyboard input (text message)
   void handleSubmitted(String text) {
@@ -750,6 +768,14 @@ class ChatMessage extends StatelessWidget {
         borderRadius: BorderRadius.circular(10.0),
         border: Border.all(width: 0.25),
         color: Colors.blueGrey[50],
+        boxShadow: [
+          BoxShadow(
+            color: Colors.grey.withOpacity(0.5),
+            spreadRadius: 5,
+            blurRadius: 7,
+            offset: Offset(0, 3),
+          ),
+        ],
       ),
       child: Column(
         crossAxisAlignment: CrossAxisAlignment.stretch,
@@ -763,7 +789,7 @@ class ChatMessage extends StatelessWidget {
           Text(
             msg.formattedText ?? 'Click or tap below',
             style: TextStyle(
-              color: Colors.black,
+              color: Colors.teal[800],
               fontWeight: FontWeight.normal,
               fontStyle: FontStyle.italic,
             ),
