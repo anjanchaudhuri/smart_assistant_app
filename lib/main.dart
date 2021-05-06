@@ -264,22 +264,22 @@ class _MyHomePageState extends State<MyHomePage> {
   }
 
   IconData _selectMicIcon() {
-    if (_isAvailable) {
-      return _micOn ? Icons.mic_rounded : Icons.mic_off_rounded;
-    } else {
-      return Icons.mic_off_outlined;
-    }
-    // return _micOn ? Icons.mic_rounded : Icons.mic_off_rounded;
+    // if (_isAvailable) {
+    //   return _micOn ? Icons.mic_rounded : Icons.mic_off_rounded;
+    // } else {
+    //   return Icons.mic_off_outlined;
+    // }
+    return _micOn ? Icons.mic_rounded : Icons.mic_off_rounded;
   }
 
   void _toggleMicState() async {
     setState(() {
-      if (_isAvailable) {
-        _micOn = (_micOn ? false : true);
-      } else {
-        _micOn = false;
-      }
-      // _micOn = (_micOn ? false : true);
+      // if (_isAvailable) {
+      //   _micOn = (_micOn ? false : true);
+      // } else {
+      //   _micOn = false;
+      // }
+      _micOn = (_micOn ? false : true);
       _selectMicIcon();
       // Test microphone usage
     });
@@ -293,26 +293,28 @@ class _MyHomePageState extends State<MyHomePage> {
 
   /// Listen to user as they speak
   void listenToUser() async {
-    // await _recorder.start();
+    print('In listenToUser()');
+    _recorder.start();
     // _audioStream = _recorder.audioStream.listen((data) {
     //   _micChunks.add(data);
     // });
-    print('In listenToUser()');
-    _printSpeechRecognizerStatus();
-    if (_isAvailable && !_isListening) {
-      _speechRecognition
-          .listen(locale: 'en_US')
-          .then((value) => print('Speech recognizer listening: $value'))
-          .onError((error, stackTrace) {
-        print('Speech recognizer error: ${error.runtimeType}');
-        print('Error stacktrace: $stackTrace');
-      });
-    }
+    // _printSpeechRecognizerStatus();
+    // if (_isAvailable && !_isListening) {
+    //   _speechRecognition
+    //       .listen(locale: 'en_US')
+    //       .then((value) => print('Speech recognizer listening: $value'))
+    //       .onError((error, stackTrace) {
+    //     print('Speech recognizer error: ${error.runtimeType}');
+    //     print('Error stacktrace: $stackTrace');
+    //   });
+    // }
   }
 
   /// Play back what the user just said
   void playbackUserSpeech() async {
-    // await _recorder.stop();
+    print('In playbackUserSpeech()');
+    await _recorder.stop();
+    submitUserUtterances();
     //
     // for (Uint8List chunk in _micChunks) {
     //   _playAudio(base64.encode(chunk));
@@ -321,15 +323,14 @@ class _MyHomePageState extends State<MyHomePage> {
     //
     // // Empty out the array of sound bytes
     // _micChunks.clear();
-    print('In playbackUserSpeech()');
-    _printSpeechRecognizerStatus();
-    if (_isListening) {
-      _speechRecognition.stop().then((value) {
-        setState(() => _isListening = value);
-        _printSpeechRecognizerStatus();
-        handleSubmitted(_textController.text);
-      });
-    }
+    // _printSpeechRecognizerStatus();
+    // if (_isListening) {
+    //   _speechRecognition.stop().then((value) {
+    //     setState(() => _isListening = value);
+    //     _printSpeechRecognizerStatus();
+    //     handleSubmitted(_textController.text);
+    //   });
+    // }
   }
 
   void _printSpeechRecognizerStatus() {
@@ -451,12 +452,39 @@ class _MyHomePageState extends State<MyHomePage> {
     response(request);
   }
 
+  /// Submit user utterances
+  void submitUserUtterances() {
+    if (_micChunks.isNotEmpty) {
+      // We have some utterance from the user
+      print('We have ${_micChunks.length} count of utterances!');
+      StringBuffer audioBuffer = new StringBuffer();
+      for (var chunk in _micChunks) {
+        audioBuffer.write(base64.encode(chunk));
+      }
+      _submitUserQuery(audioBuffer.toString());
+      _micChunks.clear();
+    }
+  }
+
+  /// Submit user query to Dialogflow
+  void _submitUserQuery(String audioString) async {
+    // var inputAudio = base64.encode(audioBytes);
+    // Check current volume
+    print('Current volume is: $_currentVolume');
+
+    _submitUserSpeech(audioString);
+    // _playAudio(audioString);
+
+  }
+
   /// Input audio config
   InputAudioConfig get inputAudioConfig {
     return df.InputAudioConfig(
       audioEncoding: df.AudioEncoding.linear16,
       sampleRateHertz: 16000,
-      languageCode: df.Language.englishUsLocale,
+      languageCode: df.Language.english,
+      enableWordInfo: true,
+      singleUtterance: true,
     );
   }
 
@@ -510,6 +538,33 @@ class _MyHomePageState extends State<MyHomePage> {
       ),
     );
     // throw UnimplementedError();
+  }
+
+  void _submitUserSpeech(String inputAudio) {
+    // Build DetectIntentRequest
+    df.DetectIntentRequest request;
+    if (_currentVolume > 0) {
+      request = df.DetectIntentRequest(
+        queryInput: df.QueryInput(
+          audioConfig: this.inputAudioConfig,
+        ),
+        inputAudio: inputAudio,
+        outputAudioConfig: this.outputAudioConfig,
+      );
+    } else {
+      request = df.DetectIntentRequest(
+        queryInput: df.QueryInput(
+          audioConfig: this.inputAudioConfig,
+        ),
+        inputAudio: inputAudio,
+      );
+    }
+
+    print('_submitUserSpeech');
+    print(request.toJson());
+
+    // Call Dialogflow
+    response(request);
   }
 }
 
