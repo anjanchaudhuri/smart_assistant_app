@@ -10,6 +10,7 @@ import 'package:flutter/material.dart';
 
 // import 'package:flutter/services.dart';
 import 'package:dialogflow_v2/dialogflow_v2.dart' as df;
+import 'package:flutter/services.dart';
 
 // import 'my_dialogflow_v2.dart' as df;
 // import 'my_auth_google.dart';
@@ -18,6 +19,8 @@ import 'package:dialogflow_v2/dialogflow_v2.dart' as df;
 import 'package:intl/intl.dart';
 import 'package:url_launcher/url_launcher.dart';
 import 'package:sound_stream/sound_stream.dart';
+import 'package:speech_recognition/speech_recognition.dart';
+import 'package:volume_watcher/volume_watcher.dart';
 
 void main() {
   runApp(MyApp());
@@ -65,6 +68,15 @@ class MyHomePage extends StatefulWidget {
 }
 
 class _MyHomePageState extends State<MyHomePage> {
+  String _platformVersion = 'Unknown';
+  double _currentVolume = 0;
+  double _initVolume = 0;
+  double _maxVolume = 0;
+
+  SpeechRecognition _speechRecognition;
+  bool _isAvailable = false;
+  bool _isListening = false;
+
   RecorderStream _recorder = RecorderStream();
   PlayerStream _player = PlayerStream();
   List<Uint8List> _micChunks = [];
@@ -79,6 +91,7 @@ class _MyHomePageState extends State<MyHomePage> {
   void initState() {
     super.initState();
     initSoundPlugin();
+    initSpeechRecognizer();
   }
 
   @override
@@ -87,6 +100,82 @@ class _MyHomePageState extends State<MyHomePage> {
     _playerStatus?.cancel();
     _audioStream?.cancel();
     super.dispose();
+  }
+
+  // Initialize volume watcher
+  Future<void> initVolumeWatcher() async {
+    String platformVersion;
+
+    // Platform messages may fail, so we use a try/catch PlatformException.
+    try {
+      VolumeWatcher.hideVolumeView = true;
+      platformVersion = await VolumeWatcher.platformVersion;
+    } on PlatformException {
+      platformVersion = 'Failed to get platform version.';
+    }
+
+    double initVolume;
+    double maxVolume;
+    try {
+      initVolume = await VolumeWatcher.getCurrentVolume;
+      maxVolume = await VolumeWatcher.getMaxVolume;
+    } on PlatformException {
+      platformVersion = 'Failed to get volume.';
+    }
+
+    // If the widget was removed from the tree while the asynchronous platform
+    // message was in flight, we want to discard the reply rather than calling
+    // setState to update our non-existent appearance.
+    if (!mounted) return;
+
+    setState(() {
+      _platformVersion = platformVersion;
+      this._initVolume = initVolume;
+      this._maxVolume = maxVolume;
+    });
+  }
+
+  // Initialize speech recognizer
+  void initSpeechRecognizer() {
+    // Instance of speech recognizer
+    _speechRecognition = SpeechRecognition();
+
+    // Availability call back handler
+    _speechRecognition.setAvailabilityHandler((result) {
+      setState(() {
+        _isAvailable = result;
+      });
+    });
+
+    // Speech recognition started event callback handler
+    _speechRecognition.setRecognitionStartedHandler(() {
+      setState(() {
+        _isListening = true;
+      });
+    });
+
+    // Speech recognition result event callback handler
+    _speechRecognition.setRecognitionResultHandler((text) {
+      setState(() {
+        _textController.text = text;
+      });
+    });
+
+    // Speech recognition completed event callback handler
+    _speechRecognition.setRecognitionCompleteHandler(() {
+      setState(() {
+        print('Speech recognition completed.');
+        _printSpeechRecognizerStatus();
+        _isListening = false;
+      });
+    });
+
+    // Activate speech recognition
+    _speechRecognition.activate().then((value) => setState(() {
+          print('Speech recognizer activated');
+          _isAvailable = value;
+          _printSpeechRecognizerStatus();
+        }));
   }
 
   // Platform messages are asynchronous, so we initialize in an async method.
@@ -128,6 +217,7 @@ class _MyHomePageState extends State<MyHomePage> {
   final List<ChatMessage> _messages = <ChatMessage>[];
   final TextEditingController _textController = TextEditingController();
   bool _micOn = false;
+
   // Future<void> _launched;
 
   Future<void> launchInBrowser(String url) async {
@@ -174,15 +264,77 @@ class _MyHomePageState extends State<MyHomePage> {
   }
 
   IconData _selectMicIcon() {
-    return _micOn ? Icons.mic_rounded : Icons.mic_off_rounded;
+    if (_isAvailable) {
+      return _micOn ? Icons.mic_rounded : Icons.mic_off_rounded;
+    } else {
+      return Icons.mic_off_outlined;
+    }
+    // return _micOn ? Icons.mic_rounded : Icons.mic_off_rounded;
   }
 
-  void _toggleMicState() {
-    _micOn = (_micOn ? false : true);
+  void _toggleMicState() async {
     setState(() {
+      if (_isAvailable) {
+        _micOn = (_micOn ? false : true);
+      } else {
+        _micOn = false;
+      }
+      // _micOn = (_micOn ? false : true);
       _selectMicIcon();
+      // Test microphone usage
     });
     print('Mic is ${_micOn ? 'on' : 'off'}');
+    if (_micOn) {
+      listenToUser();
+    } else {
+      playbackUserSpeech();
+    }
+  }
+
+  /// Listen to user as they speak
+  void listenToUser() async {
+    // await _recorder.start();
+    // _audioStream = _recorder.audioStream.listen((data) {
+    //   _micChunks.add(data);
+    // });
+    print('In listenToUser()');
+    _printSpeechRecognizerStatus();
+    if (_isAvailable && !_isListening) {
+      _speechRecognition
+          .listen(locale: 'en_US')
+          .then((value) => print('Speech recognizer listening: $value'))
+          .onError((error, stackTrace) {
+        print('Speech recognizer error: ${error.runtimeType}');
+        print('Error stacktrace: $stackTrace');
+      });
+    }
+  }
+
+  /// Play back what the user just said
+  void playbackUserSpeech() async {
+    // await _recorder.stop();
+    //
+    // for (Uint8List chunk in _micChunks) {
+    //   _playAudio(base64.encode(chunk));
+    //   // _player.writeChunk(chunk);
+    // }
+    //
+    // // Empty out the array of sound bytes
+    // _micChunks.clear();
+    print('In playbackUserSpeech()');
+    _printSpeechRecognizerStatus();
+    if (_isListening) {
+      _speechRecognition.stop().then((value) {
+        setState(() => _isListening = value);
+        _printSpeechRecognizerStatus();
+        handleSubmitted(_textController.text);
+      });
+    }
+  }
+
+  void _printSpeechRecognizerStatus() {
+    print('Speech recognizer is available: $_isAvailable');
+    print('Speech recognizer listening status: $_isListening');
   }
 
   void response(df.DetectIntentRequest query) async {
@@ -263,13 +415,37 @@ class _MyHomePageState extends State<MyHomePage> {
       _messages.insert(0, message);
     });
 
+    // Check current volume
+    print('Current volume is: $_currentVolume');
+    // VolumeController.volumeListener.listen((event) {
+    //   setState(() {
+    //     _volumeListenerValue = event;
+    //   });
+    // });
+    //
+    // VolumeController.getVolume()
+    //     .then((value) => setState(() => _volumeSet = value));
+    //
+    // print('Phone listener volume is $_volumeListenerValue');
+    // print('Phone current volume is $_volumeSet');
+
     // Build DetectIntentRequest
-    df.DetectIntentRequest request = df.DetectIntentRequest(
-      queryInput: df.QueryInput(
-        text: df.TextInput(text: text, languageCode: df.Language.english),
-      ),
-      outputAudioConfig: this.outputAudioConfig,
-    );
+    df.DetectIntentRequest request;
+    if (_currentVolume > 0) {
+      request = df.DetectIntentRequest(
+        queryInput: df.QueryInput(
+          text: df.TextInput(text: text, languageCode: df.Language.english),
+        ),
+        outputAudioConfig: this.outputAudioConfig,
+      );
+    } else {
+      request = df.DetectIntentRequest(
+        queryInput: df.QueryInput(
+          text: df.TextInput(text: text, languageCode: df.Language.english),
+        ),
+        // outputAudioConfig: this.outputAudioConfig,
+      );
+    }
 
     // Call Dialogflow
     response(request);
@@ -300,7 +476,7 @@ class _MyHomePageState extends State<MyHomePage> {
       await _player.writeChunk(base64.decode(audio));
       print('Finished playing response from Dialogflow');
     }
-    // _player.stop();
+    await _player.stop();
   }
 
   @override
@@ -311,6 +487,13 @@ class _MyHomePageState extends State<MyHomePage> {
       ),
       body: Column(
         children: <Widget>[
+          VolumeWatcher(
+            onVolumeChangeListener: (double volume) {
+              setState(() {
+                _currentVolume = volume;
+              });
+            },
+          ),
           Flexible(
               child: ListView.builder(
             padding: EdgeInsets.all(8.0),
