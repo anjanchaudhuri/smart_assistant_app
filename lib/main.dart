@@ -475,11 +475,19 @@ class _MyHomePageState extends State<MyHomePage> {
     if (_micChunks.isNotEmpty) {
       // We have some utterance from the user
       print('We have ${_micChunks.length} count of utterances!');
-      StringBuffer audioBuffer = new StringBuffer();
-      for (var chunk in _micChunks) {
-        audioBuffer.write(base64.encode(chunk));
+      List<int> byteList = [];
+      for (int i = 0; i < _micChunks.length; ++i) {
+        byteList.addAll(_micChunks[i]);
       }
-      _submitUserQuery(audioBuffer.toString());
+      Uint8List soundBytes = new Uint8List.fromList(byteList);
+      _submitUserQuery(base64.encode(soundBytes));
+
+      // StringBuffer audioBuffer = new StringBuffer();
+      // for (var chunk in _micChunks) {
+      //   audioBuffer.write(base64.encode(chunk));
+      // }
+      // _submitUserQuery(audioBuffer.toString());
+
       _micChunks.clear();
     }
   }
