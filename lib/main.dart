@@ -2,6 +2,10 @@ import 'dart:convert';
 import 'dart:async';
 import 'dart:typed_data';
 
+import 'package:smart_assistant_app/utils.dart';
+
+import 'utils.dart';
+
 import 'package:dialogflow_v2/model/audio_input_config.dart';
 import 'package:dialogflow_v2/model/output_audio_config.dart';
 import 'package:dialogflow_v2/model/output_audio_encoding.dart';
@@ -19,7 +23,7 @@ import 'package:flutter/services.dart';
 import 'package:intl/intl.dart';
 import 'package:url_launcher/url_launcher.dart';
 import 'package:sound_stream/sound_stream.dart';
-import 'package:speech_recognition/speech_recognition.dart';
+// import 'package:speech_recognition/speech_recognition.dart';
 import 'package:volume_watcher/volume_watcher.dart';
 import 'package:xml/xml.dart';
 
@@ -74,10 +78,6 @@ class _MyHomePageState extends State<MyHomePage> {
   double _initVolume = 0;
   double _maxVolume = 0;
 
-  SpeechRecognition _speechRecognition;
-  bool _isAvailable = false;
-  bool _isListening = false;
-
   RecorderStream _recorder = RecorderStream();
   PlayerStream _player = PlayerStream();
   List<Uint8List> _micChunks = [];
@@ -92,7 +92,7 @@ class _MyHomePageState extends State<MyHomePage> {
   void initState() {
     super.initState();
     initSoundPlugin();
-    // initSpeechRecognizer();
+    initVolumeWatcher();
   }
 
   @override
@@ -334,10 +334,10 @@ class _MyHomePageState extends State<MyHomePage> {
     // }
   }
 
-  void _printSpeechRecognizerStatus() {
-    print('Speech recognizer is available: $_isAvailable');
-    print('Speech recognizer listening status: $_isListening');
-  }
+  // void _printSpeechRecognizerStatus() {
+  //   print('Speech recognizer is available: $_isAvailable');
+  //   print('Speech recognizer listening status: $_isListening');
+  // }
 
   void response(df.DetectIntentRequest query) async {
     _textController.clear();
@@ -587,7 +587,7 @@ class _MyHomePageState extends State<MyHomePage> {
     }
 
     print('_submitUserSpeech');
-    print(request.toJson());
+    // Utils.printWrapped(request.toJson().toString());
 
     // Call Dialogflow
     response(request);
