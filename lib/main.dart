@@ -422,7 +422,7 @@ class _MyHomePageState extends State<MyHomePage> {
 
 
   /// Submit user query from keyboard input (text message)
-  void handleSubmitted(String text) {
+  void handleSubmitted(String text) async {
     _textController.clear();
     ChatMessage message = ChatMessage(
       text: text,
@@ -471,7 +471,7 @@ class _MyHomePageState extends State<MyHomePage> {
   }
 
   /// Submit user utterances
-  void submitUserUtterances() {
+  void submitUserUtterances() async {
     if (_micChunks.isNotEmpty) {
       // We have some utterance from the user
       print('We have ${_micChunks.length} count of utterances!');
@@ -566,7 +566,7 @@ class _MyHomePageState extends State<MyHomePage> {
     // throw UnimplementedError();
   }
 
-  void _submitUserSpeech(String inputAudio) {
+  void _submitUserSpeech(String inputAudio) async {
     // Build DetectIntentRequest
     df.DetectIntentRequest request;
     if (_currentVolume > 0) {
