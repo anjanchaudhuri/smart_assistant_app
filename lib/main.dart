@@ -23,8 +23,9 @@ import 'package:flutter/services.dart';
 import 'package:intl/intl.dart';
 import 'package:url_launcher/url_launcher.dart';
 import 'package:sound_stream/sound_stream.dart';
+
 // import 'package:speech_recognition/speech_recognition.dart';
-import 'package:volume_watcher/volume_watcher.dart';
+// import 'package:volume_watcher/volume_watcher.dart';
 import 'package:xml/xml.dart';
 
 void main() {
@@ -73,7 +74,7 @@ class MyHomePage extends StatefulWidget {
 }
 
 class _MyHomePageState extends State<MyHomePage> {
-  String _platformVersion = 'Unknown';
+  // String _platformVersion = 'Unknown';
   // double _currentVolume = 0;
   // double _initVolume = 0;
   // double _maxVolume = 0;
@@ -218,6 +219,7 @@ class _MyHomePageState extends State<MyHomePage> {
   final List<ChatMessage> _messages = <ChatMessage>[];
   final TextEditingController _textController = TextEditingController();
   bool _micOn = false;
+  bool _speakerOn = true;
 
   // Future<void> _launched;
 
@@ -273,6 +275,10 @@ class _MyHomePageState extends State<MyHomePage> {
     return _micOn ? Icons.mic_rounded : Icons.mic_off_rounded;
   }
 
+  IconData _selectSpeakerIcon() {
+    return _speakerOn ? Icons.volume_up : Icons.volume_off;
+  }
+
   void _toggleMicState() async {
     setState(() {
       // if (_isAvailable) {
@@ -290,6 +296,13 @@ class _MyHomePageState extends State<MyHomePage> {
     } else {
       playbackUserSpeech();
     }
+  }
+
+  void _toggleSpeakerState() async {
+    setState(() {
+      _speakerOn = (_speakerOn ? false : true);
+      _selectSpeakerIcon();
+    });
   }
 
   /// Listen to user as they speak
@@ -374,7 +387,6 @@ class _MyHomePageState extends State<MyHomePage> {
 
       // Play audio response from Dialogflow
       _playAudio(response.outputAudio);
-
     }
 
     print("---- end debug info -----");
@@ -420,7 +432,6 @@ class _MyHomePageState extends State<MyHomePage> {
     return simpleText;
   }
 
-
   /// Submit user query from keyboard input (text message)
   void handleSubmitted(String text) async {
     _textController.clear();
@@ -450,7 +461,8 @@ class _MyHomePageState extends State<MyHomePage> {
 
     // Build DetectIntentRequest
     df.DetectIntentRequest request;
-    if (true) { //_currentVolume > 0
+    if (_speakerOn) {
+      //_currentVolume > 0
       request = df.DetectIntentRequest(
         queryInput: df.QueryInput(
           text: df.TextInput(text: text, languageCode: df.Language.english),
@@ -500,7 +512,6 @@ class _MyHomePageState extends State<MyHomePage> {
 
     _submitUserSpeech(audioString);
     // _playAudio(audioString);
-
   }
 
   /// Input audio config
@@ -538,6 +549,12 @@ class _MyHomePageState extends State<MyHomePage> {
     return Scaffold(
       appBar: AppBar(
         title: Text(widget.title),
+        actions: <Widget>[
+          IconButton(
+            icon: Icon(_selectSpeakerIcon()),
+            onPressed: () => _toggleSpeakerState(),
+          ),
+        ],
       ),
       body: Column(
         children: <Widget>[
@@ -569,7 +586,8 @@ class _MyHomePageState extends State<MyHomePage> {
   void _submitUserSpeech(String inputAudio) async {
     // Build DetectIntentRequest
     df.DetectIntentRequest request;
-    if (true) { //_currentVolume > 0
+    if (_speakerOn) {
+      //_currentVolume > 0
       request = df.DetectIntentRequest(
         queryInput: df.QueryInput(
           audioConfig: this.inputAudioConfig,
