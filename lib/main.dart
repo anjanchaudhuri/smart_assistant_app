@@ -74,9 +74,9 @@ class MyHomePage extends StatefulWidget {
 
 class _MyHomePageState extends State<MyHomePage> {
   String _platformVersion = 'Unknown';
-  double _currentVolume = 0;
-  double _initVolume = 0;
-  double _maxVolume = 0;
+  // double _currentVolume = 0;
+  // double _initVolume = 0;
+  // double _maxVolume = 0;
 
   RecorderStream _recorder = RecorderStream();
   PlayerStream _player = PlayerStream();
@@ -92,7 +92,7 @@ class _MyHomePageState extends State<MyHomePage> {
   void initState() {
     super.initState();
     initSoundPlugin();
-    initVolumeWatcher();
+    // initVolumeWatcher();
   }
 
   @override
@@ -104,37 +104,37 @@ class _MyHomePageState extends State<MyHomePage> {
   }
 
   // Initialize volume watcher
-  Future<void> initVolumeWatcher() async {
-    String platformVersion;
-
-    // Platform messages may fail, so we use a try/catch PlatformException.
-    try {
-      VolumeWatcher.hideVolumeView = true;
-      platformVersion = await VolumeWatcher.platformVersion;
-    } on PlatformException {
-      platformVersion = 'Failed to get platform version.';
-    }
-
-    double initVolume;
-    double maxVolume;
-    try {
-      initVolume = await VolumeWatcher.getCurrentVolume;
-      maxVolume = await VolumeWatcher.getMaxVolume;
-    } on PlatformException {
-      platformVersion = 'Failed to get volume.';
-    }
-
-    // If the widget was removed from the tree while the asynchronous platform
-    // message was in flight, we want to discard the reply rather than calling
-    // setState to update our non-existent appearance.
-    if (!mounted) return;
-
-    setState(() {
-      _platformVersion = platformVersion;
-      this._initVolume = initVolume;
-      this._maxVolume = maxVolume;
-    });
-  }
+  // Future<void> initVolumeWatcher() async {
+  //   String platformVersion;
+  //
+  //   // Platform messages may fail, so we use a try/catch PlatformException.
+  //   try {
+  //     VolumeWatcher.hideVolumeView = true;
+  //     platformVersion = await VolumeWatcher.platformVersion;
+  //   } on PlatformException {
+  //     platformVersion = 'Failed to get platform version.';
+  //   }
+  //
+  //   double initVolume;
+  //   double maxVolume;
+  //   try {
+  //     initVolume = await VolumeWatcher.getCurrentVolume;
+  //     maxVolume = await VolumeWatcher.getMaxVolume;
+  //   } on PlatformException {
+  //     platformVersion = 'Failed to get volume.';
+  //   }
+  //
+  //   // If the widget was removed from the tree while the asynchronous platform
+  //   // message was in flight, we want to discard the reply rather than calling
+  //   // setState to update our non-existent appearance.
+  //   if (!mounted) return;
+  //
+  //   setState(() {
+  //     _platformVersion = platformVersion;
+  //     this._initVolume = initVolume;
+  //     this._maxVolume = maxVolume;
+  //   });
+  // }
 
   // Initialize speech recognizer
   // void initSpeechRecognizer() {
@@ -435,7 +435,7 @@ class _MyHomePageState extends State<MyHomePage> {
     });
 
     // Check current volume
-    print('Current volume is: $_currentVolume');
+    // print('Current volume is: $_currentVolume');
     // VolumeController.volumeListener.listen((event) {
     //   setState(() {
     //     _volumeListenerValue = event;
@@ -496,7 +496,7 @@ class _MyHomePageState extends State<MyHomePage> {
   void _submitUserQuery(String audioString) async {
     // var inputAudio = base64.encode(audioBytes);
     // Check current volume
-    print('Current volume is: $_currentVolume');
+    // print('Current volume is: $_currentVolume');
 
     _submitUserSpeech(audioString);
     // _playAudio(audioString);
@@ -541,13 +541,13 @@ class _MyHomePageState extends State<MyHomePage> {
       ),
       body: Column(
         children: <Widget>[
-          VolumeWatcher(
-            onVolumeChangeListener: (double volume) {
-              setState(() {
-                _currentVolume = volume;
-              });
-            },
-          ),
+          // VolumeWatcher(
+          //   onVolumeChangeListener: (double volume) {
+          //     setState(() {
+          //       _currentVolume = volume;
+          //     });
+          //   },
+          // ),
           Flexible(
               child: ListView.builder(
             padding: EdgeInsets.all(8.0),
