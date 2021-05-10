@@ -450,7 +450,7 @@ class _MyHomePageState extends State<MyHomePage> {
 
     // Build DetectIntentRequest
     df.DetectIntentRequest request;
-    if (_currentVolume > 0) {
+    if (true) { //_currentVolume > 0
       request = df.DetectIntentRequest(
         queryInput: df.QueryInput(
           text: df.TextInput(text: text, languageCode: df.Language.english),
@@ -569,7 +569,7 @@ class _MyHomePageState extends State<MyHomePage> {
   void _submitUserSpeech(String inputAudio) async {
     // Build DetectIntentRequest
     df.DetectIntentRequest request;
-    if (_currentVolume > 0) {
+    if (true) { //_currentVolume > 0
       request = df.DetectIntentRequest(
         queryInput: df.QueryInput(
           audioConfig: this.inputAudioConfig,
