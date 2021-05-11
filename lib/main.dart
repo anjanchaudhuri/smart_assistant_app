@@ -74,10 +74,6 @@ class MyHomePage extends StatefulWidget {
 }
 
 class _MyHomePageState extends State<MyHomePage> {
-  // String _platformVersion = 'Unknown';
-  // double _currentVolume = 0;
-  // double _initVolume = 0;
-  // double _maxVolume = 0;
 
   RecorderStream _recorder = RecorderStream();
   PlayerStream _player = PlayerStream();
@@ -87,100 +83,22 @@ class _MyHomePageState extends State<MyHomePage> {
 
   StreamSubscription _recorderStatus;
   StreamSubscription _playerStatus;
-  StreamSubscription _audioStream;
+  StreamSubscription _microphoneStream;
 
   @override
   void initState() {
     super.initState();
     initSoundPlugin();
-    // initVolumeWatcher();
   }
 
   @override
   void dispose() {
     _recorderStatus?.cancel();
     _playerStatus?.cancel();
-    _audioStream?.cancel();
+    _microphoneStream?.cancel();
     super.dispose();
   }
 
-  // Initialize volume watcher
-  // Future<void> initVolumeWatcher() async {
-  //   String platformVersion;
-  //
-  //   // Platform messages may fail, so we use a try/catch PlatformException.
-  //   try {
-  //     VolumeWatcher.hideVolumeView = true;
-  //     platformVersion = await VolumeWatcher.platformVersion;
-  //   } on PlatformException {
-  //     platformVersion = 'Failed to get platform version.';
-  //   }
-  //
-  //   double initVolume;
-  //   double maxVolume;
-  //   try {
-  //     initVolume = await VolumeWatcher.getCurrentVolume;
-  //     maxVolume = await VolumeWatcher.getMaxVolume;
-  //   } on PlatformException {
-  //     platformVersion = 'Failed to get volume.';
-  //   }
-  //
-  //   // If the widget was removed from the tree while the asynchronous platform
-  //   // message was in flight, we want to discard the reply rather than calling
-  //   // setState to update our non-existent appearance.
-  //   if (!mounted) return;
-  //
-  //   setState(() {
-  //     _platformVersion = platformVersion;
-  //     this._initVolume = initVolume;
-  //     this._maxVolume = maxVolume;
-  //   });
-  // }
-
-  // Initialize speech recognizer
-  // void initSpeechRecognizer() {
-  //   // Instance of speech recognizer
-  //   _speechRecognition = SpeechRecognition();
-  //
-  //   // Availability call back handler
-  //   _speechRecognition.setAvailabilityHandler((result) {
-  //     setState(() {
-  //       _isAvailable = result;
-  //     });
-  //   });
-  //
-  //   // Speech recognition started event callback handler
-  //   _speechRecognition.setRecognitionStartedHandler(() {
-  //     setState(() {
-  //       _isListening = true;
-  //     });
-  //   });
-  //
-  //   // Speech recognition result event callback handler
-  //   _speechRecognition.setRecognitionResultHandler((text) {
-  //     setState(() {
-  //       _textController.text = text;
-  //     });
-  //   });
-  //
-  //   // Speech recognition completed event callback handler
-  //   _speechRecognition.setRecognitionCompleteHandler(() {
-  //     setState(() {
-  //       print('Speech recognition completed.');
-  //       _printSpeechRecognizerStatus();
-  //       _isListening = false;
-  //     });
-  //   });
-  //
-  //   // Activate speech recognition
-  //   _speechRecognition.activate().then((value) => setState(() {
-  //         print('Speech recognizer activated');
-  //         _isAvailable = value;
-  //         _printSpeechRecognizerStatus();
-  //       }));
-  // }
-
-  // Platform messages are asynchronous, so we initialize in an async method.
   Future<void> initSoundPlugin() async {
     _recorderStatus = _recorder.status.listen((status) {
       if (mounted)
@@ -189,12 +107,13 @@ class _MyHomePageState extends State<MyHomePage> {
         });
     });
 
-    _audioStream = _recorder.audioStream.listen((data) {
-      if (_isPlaying) {
-        _player.writeChunk(data);
-      } else {
-        _micChunks.add(data);
-      }
+    _microphoneStream = _recorder.audioStream.listen((data) {
+      // if (_isPlaying) {
+      //   _player.writeChunk(data);
+      // } else {
+      //   _micChunks.add(data);
+      // }
+      _micChunks.add(data);
     });
 
     _playerStatus = _player.status.listen((status) {
@@ -308,7 +227,10 @@ class _MyHomePageState extends State<MyHomePage> {
   /// Listen to user as they speak
   void listenToUser() async {
     print('In listenToUser()');
-    _recorder.start();
+    if (_isPlaying) {
+      await _player.stop();
+    }
+    await _recorder.start();
     // _audioStream = _recorder.audioStream.listen((data) {
     //   _micChunks.add(data);
     // });
@@ -352,7 +274,7 @@ class _MyHomePageState extends State<MyHomePage> {
   //   print('Speech recognizer listening status: $_isListening');
   // }
 
-  void response(df.DetectIntentRequest query) async {
+  Future<void> response(df.DetectIntentRequest query) async {
     _textController.clear();
     df.AuthGoogle authGoogle =
         await df.AuthGoogle(fileJson: '.secret/smart_assistant.json').build();
@@ -386,7 +308,7 @@ class _MyHomePageState extends State<MyHomePage> {
       print('Output audio: ${response.outputAudio.length}');
 
       // Play audio response from Dialogflow
-      _playAudio(response.outputAudio);
+      await _playAudio(response.outputAudio);
     }
 
     print("---- end debug info -----");
@@ -479,7 +401,7 @@ class _MyHomePageState extends State<MyHomePage> {
     }
 
     // Call Dialogflow
-    response(request);
+    await response(request);
   }
 
   /// Submit user utterances
@@ -534,14 +456,17 @@ class _MyHomePageState extends State<MyHomePage> {
   }
 
   /// Play audio received from Dialogflow
-  void _playAudio(String audio) async {
-    await _player.start();
+  Future<void> _playAudio(String audio) async {
     if (audio != null && audio.length > 0) {
-      print('Playing audio response from Dialogflow...');
-      await _player.writeChunk(base64.decode(audio));
-      print('Finished playing response from Dialogflow');
+      setState(() {
+        _player.start();
+        print('Playing audio response from Dialogflow...');
+      });
+      _player.audioStream.add(base64.decode(audio));
+      // _player.writeChunk(base64.decode(audio));
+      print('Finished queueing response from Dialogflow');
     }
-    await _player.stop();
+    // await _player.stop();
   }
 
   @override
