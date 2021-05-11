@@ -85,6 +85,8 @@ class _MyHomePageState extends State<MyHomePage> {
   StreamSubscription _playerStatus;
   StreamSubscription _microphoneStream;
 
+  Timer _utteranceMonitor;
+
   @override
   void initState() {
     super.initState();
@@ -138,7 +140,7 @@ class _MyHomePageState extends State<MyHomePage> {
   final List<ChatMessage> _messages = <ChatMessage>[];
   final TextEditingController _textController = TextEditingController();
   bool _micOn = false;
-  bool _speakerOn = true;
+  bool _speakerOn = false;
 
   // Future<void> _launched;
 
@@ -212,6 +214,7 @@ class _MyHomePageState extends State<MyHomePage> {
     print('Mic is ${_micOn ? 'on' : 'off'}');
     if (_micOn) {
       listenToUser();
+      _utteranceMonitor = Timer(Duration(seconds: 5), _toggleMicState);
     } else {
       playbackUserSpeech();
     }
@@ -221,15 +224,16 @@ class _MyHomePageState extends State<MyHomePage> {
     setState(() {
       _speakerOn = (_speakerOn ? false : true);
       _selectSpeakerIcon();
+      _speakerOn ? _player.start() : _player.stop();
     });
   }
 
   /// Listen to user as they speak
   void listenToUser() async {
     print('In listenToUser()');
-    if (_isPlaying) {
-      await _player.stop();
-    }
+    // if (_isPlaying) {
+    //   await _player.stop();
+    // }
     await _recorder.start();
     // _audioStream = _recorder.audioStream.listen((data) {
     //   _micChunks.add(data);
@@ -248,8 +252,11 @@ class _MyHomePageState extends State<MyHomePage> {
 
   /// Play back what the user just said
   void playbackUserSpeech() async {
+    if (_utteranceMonitor.isActive) {
+      _utteranceMonitor.cancel();
+    }
     print('In playbackUserSpeech()');
-    await _recorder.stop();
+    // await _recorder.stop();
     submitUserUtterances();
     //
     // for (Uint8List chunk in _micChunks) {
@@ -458,13 +465,10 @@ class _MyHomePageState extends State<MyHomePage> {
   /// Play audio received from Dialogflow
   Future<void> _playAudio(String audio) async {
     if (audio != null && audio.length > 0) {
-      setState(() {
-        _player.start();
-        print('Playing audio response from Dialogflow...');
-      });
+      print('Playing audio response from Dialogflow...');
       _player.audioStream.add(base64.decode(audio));
-      // _player.writeChunk(base64.decode(audio));
       print('Finished queueing response from Dialogflow');
+      // _player.writeChunk(base64.decode(audio));
     }
     // await _player.stop();
   }
