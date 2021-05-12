@@ -210,14 +210,18 @@ class _MyHomePageState extends State<MyHomePage> {
       // }
       _micOn = (_micOn ? false : true);
       _selectMicIcon();
-      _hintText = _micOn ? 'Talk when you want. Listening...' : 'Send a message';
+      _hintText = _micOn ? 'Listening...' : 'Send a message';
       // Test microphone usage
     });
     print('Mic is ${_micOn ? 'on' : 'off'}');
     if (_micOn) {
       listenToUser();
-      _utteranceMonitor = Timer.periodic(
-          Duration(seconds: 7), (Timer t) => submitUserUtterances()
+      // _utteranceMonitor = Timer.periodic(
+      //     Duration(seconds: 7), (Timer t) => submitUserUtterances()
+      // );
+      _utteranceMonitor = Timer(
+          Duration(seconds: 5),
+          _toggleMicState
       );
     } else {
       playbackUserSpeech();
@@ -260,7 +264,7 @@ class _MyHomePageState extends State<MyHomePage> {
       _utteranceMonitor.cancel();
     }
     print('In playbackUserSpeech()');
-    // await _recorder.stop();
+    await _recorder.stop();
     submitUserUtterances();
     //
     // for (Uint8List chunk in _micChunks) {
@@ -425,6 +429,7 @@ class _MyHomePageState extends State<MyHomePage> {
         byteList.addAll(_micChunks[i]);
       }
       Uint8List soundBytes = new Uint8List.fromList(byteList);
+      print('Audio byte count: ${soundBytes.length}');
       _submitUserQuery(base64.encode(soundBytes));
 
       // StringBuffer audioBuffer = new StringBuffer();
