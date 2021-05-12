@@ -74,7 +74,6 @@ class MyHomePage extends StatefulWidget {
 }
 
 class _MyHomePageState extends State<MyHomePage> {
-
   RecorderStream _recorder = RecorderStream();
   PlayerStream _player = PlayerStream();
   List<Uint8List> _micChunks = [];
@@ -86,6 +85,8 @@ class _MyHomePageState extends State<MyHomePage> {
   StreamSubscription _microphoneStream;
 
   Timer _utteranceMonitor;
+
+  String _hintText = 'Send a message';
 
   @override
   void initState() {
@@ -164,7 +165,7 @@ class _MyHomePageState extends State<MyHomePage> {
                 controller: _textController,
                 onSubmitted: handleSubmitted,
                 decoration:
-                    InputDecoration.collapsed(hintText: 'Send a message'),
+                    InputDecoration.collapsed(hintText: _hintText),
               ),
             ),
             Container(
@@ -209,12 +210,15 @@ class _MyHomePageState extends State<MyHomePage> {
       // }
       _micOn = (_micOn ? false : true);
       _selectMicIcon();
+      _hintText = _micOn ? 'Talk when you want. Listening...' : 'Send a message';
       // Test microphone usage
     });
     print('Mic is ${_micOn ? 'on' : 'off'}');
     if (_micOn) {
       listenToUser();
-      _utteranceMonitor = Timer(Duration(seconds: 5), _toggleMicState);
+      _utteranceMonitor = Timer.periodic(
+          Duration(seconds: 11), (Timer t) => submitUserUtterances()
+      );
     } else {
       playbackUserSpeech();
     }
