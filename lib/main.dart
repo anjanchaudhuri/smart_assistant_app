@@ -217,7 +217,7 @@ class _MyHomePageState extends State<MyHomePage> {
     if (_micOn) {
       listenToUser();
       _utteranceMonitor = Timer.periodic(
-          Duration(seconds: 11), (Timer t) => submitUserUtterances()
+          Duration(seconds: 7), (Timer t) => submitUserUtterances()
       );
     } else {
       playbackUserSpeech();
